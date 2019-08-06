@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Dukes WC Player Auction</title>
+
+    <!-- update the version number as needed -->
+    <script defer src="/__/firebase/5.4.1/firebase-app.js"></script>
+    <!-- include only the Firebase features as you need -->
+    <script defer src="/__/firebase/5.4.1/firebase-auth.js"></script>
+    <script defer src="/__/firebase/5.4.1/firebase-firestore.js"></script>
+    <script defer src="/__/firebase/5.4.1/firebase-functions.js"></script>
+    <script defer src="/__/firebase/5.4.1/firebase-storage.js"></script>
+    <!-- initialize the SDK after all desired features are loaded -->
+    <script defer src="/__/firebase/init.js"></script>
+
+    <style media="screen">
+      body { background: #ECEFF1; color: rgba(0,0,0,0.87); font-family: Roboto, Helvetica, Arial, sans-serif; margin: 0; padding: 0; }
+      #message { background: white; max-width: 360px; margin: 100px auto 16px; padding: 32px 24px; border-radius: 3px; }
+      #message h2 { color: #a52b2b; font-weight: bold; font-size: 16px; margin: 0 0 8px; }
+      #message h1 { font-size: 24px; font-weight: bold; color: rgba(0,0,0,0.6); margin: 0 0 16px;}
+      #message h3 { font-size: 20px; font-weight: bold; color: #00ff10; margin:0 0 16px;}
+      #message h4 { font-size: 20px; font-weight: bold; color: #ff00f0; margin:0 0 16px;}
+      #message p { line-height: 140%; margin: 16px 0 24px; font-size: 14px; }
+      #message button { display: block; text-align: center; width:100%;background: #039be5; text-transform: uppercase; text-decoration: none; color: white; padding: 16px; border-radius: 4px; }
+      #message, #message button { box-shadow: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24); }
+      .column {float:left;width:50%;}
+      .row:after {content:"";display:table;clear:both;}
+      .NFCSouth {color: #4286f4;}
+      .NFCWest {color: #e80606;}
+      .NFCNorth {color: #66180a;}
+      .NFCEast {color: #06e891;}
+      .AFCWest {color: #d306aa;}
+      .AFCSouth {color: #ddd00f;}
+      .AFCNorth {color: #9b0937;}
+      .AFCEast {color: #e2820d;}
+      .owner {font-weight: bold; color:#0b0c0c }
+      #load { color: rgba(0,0,0,0.4); text-align: center; font-size: 13px; }
+      @media (max-width: 600px) {
+        body, #message { margin-top: 0; background: white; box-shadow: none; }
+        body { border-top: 16px solid #ffa100; }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="message">
+      <h2>Dukes WC Player Auction - <span id="username"></span></h2>
+      <div id="user">
+        <h4>Enter Name:<input type="text" id='ownername'></h4>
+        <h4>Enter Key:<input type="text" id='ownerkey'></h4>
+        <button type="button" onclick='userlogin()'>Submit</button>
+      </div>
+      <div id="draftAction" style="display:none">
+        <h4>Owner: <input type="text" id="draftOwner"></h4>
+        <!--<h4>Player: <input type="text" id="draftplayer"></h4>-->
+        <h4>Player: <select id="nominatedPlayer"></select></h4>
+        <button type="button" onclick='startDraft()'>Start</button>
+        <span/><span/><span/>
+        <button type="button" onclick='endDraft()'>End</button>
+      </div>
+      <div id="showAuction" style="display:none">
+        <h1 id="currentPlayer"></h1>
+        <div class="row">
+          <div class="column">
+            <h2>Category: <span id="currentPlayerCategory"></span></h2>
+            <h2>Salary: $<span id="currentPlayerSalary"></span><h2>
+          </div>
+        </div>
+        <div class="row">
+          <div class="column">
+            <h3>Owner: <span id="currentOwner"></span></h3>
+            <h4>Price: $<span id="currentBidValue"></span></h4>
+          </div>
+          <div class="column">
+            <h1 id="bidCounter">TIME</h1>
+          </div>
+        </div>
+        <span id="bidTime"></span>
+        <span class="mb-3"></span>
+        <button type="button" onclick="bidClick()" id="bidbutton">Bid</button>
+        <span></span>
+        <hr/>
+        <h1>Results</h1>
+        <ol id="results"></ol>
+      </div>
+    </div>
+    <p id="load">&copy; 2019 apatti. All Rights Reserved</p>
+    <script>
+      var bidTimer=null;
+      var player="";
+      var lastUpdateTime=null;
+      var userPlayer1=null;
+      var userPlayer2=null;
+      document.addEventListener('DOMContentLoaded', function()
+      {
+        try
+        {
+          let db = firebase.firestore();
+          db.collection("users").orderBy("order").onSnapshot(function(usersDataSnapshot)
+          {
+            document.getElementById('results').innerHTML="";
+            usersDataSnapshot.forEach(function(doc){
+              var userData = doc.data();
+              var li = document.createElement("li");
+              var span = document.createElement('span');
+              var ownerspan = document.createElement('span');
+              ownerspan.className="owner";
+              ownerspan.append(doc.id)
+              var ol = document.createElement("ol");
+              if(userData.player1!=null)
+              {
+                  var p1li = document.createElement("li");
+                  var player1span = document.createElement("span");
+                  var playerspan = document.createElement('span');
+                  var catspan = document.createElement('span');
+                  var pricespan = document.createElement('span');
+
+                  playerspan.append(userData.player1.name +" - ");
+                  catspan.append(userData.player1.category+" - ");
+                  pricespan.append("$"+userData.player1.bidPrice);
+                  player1span.append(playerspan,catspan,pricespan);
+                  p1li.appendChild(player1span);
+                  ol.appendChild(p1li);
+              }
+              if(userData.player2!=null)
+              {
+                  var p2li = document.createElement("li");
+                  var player2span = document.createElement("span");
+                  var playerspan = document.createElement('span');
+                  var catspan = document.createElement('span');
+                  var pricespan = document.createElement('span');
+
+                  playerspan.append(userData.player2.name +" - ");
+                  catspan.append(userData.player2.category+" - ");
+                  pricespan.append("$"+userData.player2.bidPrice);
+                  player2span.append(playerspan,catspan,pricespan);
+                  p2li.appendChild(player2span);
+                  ol.appendChild(p2li);
+              }
+              ownerspan.appendChild(ol);
+              //span.append(playerspan,catspan,pricespan);
+              li.appendChild(ownerspan);
+              document.getElementById('results').appendChild(li);
+
+            });
+          });
+
+          db.collection("results").doc("currentPlayer").onSnapshot(function(doc)
+          {
+            var currentValue = doc.data();
+            if(currentValue==null)
+            {
+              return;
+            }
+            document.getElementById('currentPlayer').innerHTML = currentValue.name+" - "+currentValue.team;
+            document.getElementById('currentPlayerCategory').innerHTML = currentValue.category;
+            document.getElementById('currentPlayerSalary').innerHTML = currentValue.salary;
+            document.getElementById('currentOwner').innerHTML=currentValue.owner;
+            document.getElementById('currentBidValue').innerHTML=currentValue.bidPrice;
+            document.getElementById('bidTime').innerHTML=new Date(currentValue.updatedAt);
+            //lastUpdateTime = snapshot.val().updatedAt;
+            var updateTime = new Date(currentValue.updatedAt).getTime();
+            lastUpdateTime = updateTime;
+            var distance=Math.floor(((updateTime+25000)-(new Date().getTime()))/1000);
+                  //var distance=31;
+            if(bidTimer!=null)
+            {
+              clearInterval(bidTimer);
+            }
+            bidTimer = setInterval(function()
+            {
+                  //var distance = new Date().getTime()-updateTime;
+              distance--;
+              if(distance<=0)
+              {
+                clearInterval(bidTimer);
+                bidTimer=null;
+                document.getElementById('bidCounter').innerHTML="Expired";
+              }
+              else {
+                document.getElementById('bidCounter').innerHTML=distance;
+              }
+            },1000);
+          });
+        } catch (e)
+        {
+          console.error(e);
+          //document.getElementById('load').innerHTML = 'Error loading the Firebase SDK, check the console.';
+        }
+      });
+      function bidClick()
+      {
+        if(bidTimer==null)
+        {
+          return;
+        }
+        if(document.getElementById('currentOwner').innerHTML==document.getElementById("username").innerHTML)
+        {
+          return;
+        }
+        if(Math.floor(((lastUpdateTime+25000)-(new Date().getTime()))/1000)<=0)
+        {
+          return;
+        }
+        if(userPlayer1!=null && userPlayer1==document.getElementById('currentPlayerCategory').innerHTML)
+        {
+          return;
+        }
+        if(userPlayer2!=null && userPlayer2==document.getElementById('currentPlayerCategory').innerHTML)
+        {
+          return;
+        }
+
+        let playerId=document.getElementById('currentPlayer').innerText;
+        let bidValue = document.getElementById('currentBidValue').innerText;
+        var updates={};
+        updates.bidPrice=parseInt(bidValue)+1;
+        updates.owner=document.getElementById("username").innerHTML;
+        updates.updatedAt = firebase.firestore.FieldValue.serverTimestamp();
+        updates.state='update';
+        let db = firebase.firestore();
+        db.collection("results").doc("currentPlayer").update(updates).then(
+          function(){console.log("bid success");}).catch(function(err){
+            console.log(err);
+            alert(err);
+          });
+      }
+      function startDraft()
+      {
+        var draftplayer=document.getElementById("nominatedPlayer").value;
+        var draftOwner = document.getElementById("draftOwner").value;
+        var url ="https://us-central1-cricketplayerdraft.cloudfunctions.net/startNewAuction?"+
+                "player="+draftplayer+"&user=ADMINUSERKEY&owner="+draftOwner;
+        var form = document.createElement("form",{action:url,
+                                                  method:"POST",
+                                                  style: "display: none"});
+        form.action = url;
+        form.method="Post";
+        document.body.appendChild(form);
+        form.submit();
+        document.body.removeChild(form);
+      }
+
+      function endDraft()
+      {
+        var draftOwner=document.getElementById("draftOwner").value;
+        var url ="https://us-central1-cricketplayerdraft.cloudfunctions.net/endCurrentAuction?owner="+draftOwner+"&user=ADMINUSERKEY";
+        var form = document.createElement("form",{style: "display: none"});
+        form.action = url;
+        form.method="Post";
+        document.body.appendChild(form);
+        form.submit();
+        document.body.removeChild(form);
+      }
+
+    	function userlogin()
+      {
+        ownername = document.getElementById("ownername").value;
+        ownerkey = document.getElementById("ownerkey").value;
+	       if(ownername=="")
+	        {
+	           alert("Enter valid username");
+             return;
+	        }
+        if(ownerkey=="")
+        {
+          alert("Enter valid key");
+          return;
+        }
+
+        let db = firebase.firestore();
+        if(ownerkey=="ZXCVBNM")
+        {
+          document.getElementById("draftAction").style.display="block";
+          document.getElementById("user").style.display="none";
+
+          db.collection('players').get().then(function(playersSnapShot){
+              playersSnapShot.forEach(function(doc){
+                var option = document.createElement("option");
+                option.value=doc.id;
+                option.text=doc.id;
+                document.getElementById("nominatedPlayer").appendChild(option);
+              });
+              //return;
+          });
+          return;
+        }
+        db.collection('users').doc(ownername).onSnapshot(function(doc)
+        {
+          console.log(doc);
+	         //alert(snapshot);
+          if(doc.exists && doc.data().key==ownerkey)
+          {
+            document.getElementById("showAuction").style.display="block";
+            document.getElementById("username").innerHTML=ownername;
+            document.getElementById("user").style.display="none";
+            if(doc.data().player1!=null)
+            {
+              userPlayer1 = doc.data().player1.category;
+            }
+            if(doc.data().player2!=null)
+            {
+              userPlayer2 = doc.data().player2.category;
+            }
+            if(ownername=="viewer" || (userPlayer1!=null && userPlayer2!=null))
+            {
+              document.getElementById("bidbutton").style.display="none";
+            }
+          }
+          else
+          {
+            alert("Invalid key");
+          }
+        });
+      }
+
+    </script>
+  </body>
+</html>
